@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scadenzario Smart</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+<style>
+body{font-family:Arial,sans-serif;margin:20px}
+.card{border:1px solid #ddd;padding:10px;margin:8px 0;border-radius:8px}
+.red{background:#ffe5e5}.orange{background:#fff0d9}.green{background:#e8ffe8}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #ddd;padding:6px;text-align:left}
+</style>
+</head>
+<body>
+<h2>📦 Scadenzario Smart</h2>
+<input type="file" id="file" accept=".xlsx,.xls">
+<div id="stats"></div>
+<div id="out"></div>
+
+<script>
+function parseSfusi(v){
+  let s=String(v).trim();
+  if(!s) return null;
+  if(s.length===3) s="0"+s;
+  let day=parseInt(s.slice(0,s.length-2));
+  let month=parseInt(s.slice(-2));
+  if(month<1||month>12||day<1||day>31) return null;
+  return new Date(new Date().getFullYear(),month-1,day);
+}
+function fmt(d){
+  return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");
+}
+document.getElementById('file').addEventListener('change',e=>{
+ const f=e.target.files[0];
+ const r=new FileReader();
+ r.onload=ev=>{
+  const wb=XLSX.read(ev.target.result,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const data=XLSX.utils.sheet_to_json(ws);
+  let rows="";
+  let s7=0, s10=0, s15=0, scad=0;
+  const today=new Date(); today.setHours(0,0,0,0);
+
+  data.forEach(x=>{
+    const d=parseSfusi(x["Sfusi"]);
+    if(!d) return;
+    const diff=Math.ceil((d-today)/86400000);
+    let cls="green";
+    if(diff<0){cls="red"; scad++;}
+    else if(diff<=7){cls="red"; s7++;}
+    else if(diff<=10){cls="orange"; s10++;}
+    else if(diff<=15){cls="green"; s15++;}
+
+    rows += `<tr class="${cls}">
+      <td>${x["Reparto cassa"]||""}</td>
+      <td>${x["Descrizione"]||""}</td>
+      <td>${fmt(d)}</td>
+      <td>${diff}</td>
+    </tr>`;
+  });
+
+  document.getElementById('stats').innerHTML =
+   `<div class="card">🔴 Scaduti: ${scad} | 🟠 Entro 7 giorni: ${s7} | 🟡 Entro 10 giorni: ${s10} | 🟢 Entro 15 giorni: ${s15}</div>`;
+
+  document.getElementById('out').innerHTML =
+   `<table>
+    <tr><th>Reparto</th><th>Descrizione</th><th>Scadenza</th><th>Giorni</th></tr>
+    ${rows}
+   </table>`;
+ };
+ r.readAsArrayBuffer(f);
+});
+</script>
+</body>
+</html>
